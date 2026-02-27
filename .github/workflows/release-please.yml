@@ -1,0 +1,38 @@
+# TideMark
+# ========
+#
+# File: .github/workflows/release-please.yml
+# Description: Automated version management workflow using release-please.
+#
+# Responsibility:
+# - Create and maintain release PRs and semantic version tags from conventional commits.
+#
+# Architectural Position:
+# - Release orchestration entrypoint for automated version management.
+#
+# Author: Silan.Hu
+# Email: silan.hu@u.nus.edu
+# Copyright (c) 2026-2027 easynet. All rights reserved.
+
+name: release-please
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run release-please
+        id: release
+        uses: googleapis/release-please-action@v4
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json

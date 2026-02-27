@@ -107,6 +107,12 @@ tide service uninstall
 - APT publish helper: `./scripts/release/publish-apt.sh`
 - Release tarball + checksums: `./scripts/release/build-dist.sh`
 
+## Version Management and Auto Release
+- `release-please` workflow (`.github/workflows/release-please.yml`) manages semantic version bumps, release PRs, tags, and changelog updates.
+- After release publication (with tag `v*`), `release.yml` builds and uploads installable artifacts (`tar.gz`, checksum, `.deb`) to that release.
+- Artifact version naming is normalized from the tag (`v0.1.0` -> `0.1.0`) before packaging.
+- Recommended commit format for clean release notes: Conventional Commits (`feat:`, `fix:`, `chore:`).
+
 ## Build
 ```bash
 cargo build

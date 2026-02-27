@@ -52,6 +52,7 @@ Official reference:
 - Debian build path: `scripts/release/build-deb.sh` + `Cargo.toml` `package.metadata.deb`
 - APT publish helper: `scripts/release/publish-apt.sh`
 - Multi-platform release workflow: `.github/workflows/release.yml`
+- Automated version management workflow: `.github/workflows/release-please.yml`
 
 ## 5. Upgrade Path
 - Homebrew: `brew upgrade tide`
@@ -59,7 +60,14 @@ Official reference:
 
 Note: There is no in-place binary self-update command. Upgrades are managed through package managers or GitHub Releases.
 
-## 6. Formula Rendering Example
+## 6. Automated Release Flow
+
+1. Push conventional commits to `main`.
+2. `release-please` opens or updates a release PR with version/changelog changes.
+3. Merge the release PR to create a `v*` tag and GitHub Release.
+4. `release.yml` is triggered by release publication, normalizes `v*` to plain semantic version, then builds and uploads installable artifacts to that release.
+
+## 7. Formula Rendering Example
 ```bash
 ./scripts/release/render-homebrew-formula.sh \
   0.1.0 \

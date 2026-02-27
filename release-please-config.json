@@ -1,0 +1,10 @@
+{
+  "packages": {
+    ".": {
+      "release-type": "rust",
+      "package-name": "tidemark",
+      "changelog-path": "CHANGELOG.md",
+      "include-v-in-tag": true
+    }
+  }
+}

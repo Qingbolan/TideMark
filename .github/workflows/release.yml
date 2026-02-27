@@ -2,10 +2,10 @@
 # ========
 #
 # File: .github/workflows/release.yml
-# Description: Release workflow for building and publishing TideMark distribution artifacts.
+# Description: Release workflow for building and publishing TideMark distribution artifacts from published releases.
 #
 # Responsibility:
-# - Build platform artifacts and publish release assets for version tags.
+# - Build platform artifacts and publish release assets for the resolved release tag/version.
 #
 # Architectural Position:
 # - Repository automation entry for release delivery.
@@ -17,15 +17,46 @@
 name: release
 
 on:
-  push:
-    tags:
-      - "v*"
+  release:
+    types:
+      - published
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to build (for example: v0.1.0)"
+        required: false
+        type: string
 
 permissions:
   contents: write
 
 jobs:
+  prep:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+      version: ${{ steps.meta.outputs.version }}
+    steps:
+      - name: Resolve release metadata
+        id: meta
+        run: |
+          if [[ "${{ github.event_name }}" == "release" ]]; then
+            TAG="${{ github.event.release.tag_name }}"
+          else
+            TAG="${{ inputs.tag }}"
+          fi
+
+          if [[ -z "$TAG" ]]; then
+            echo "error: missing release tag" >&2
+            exit 2
+          fi
+
+          VERSION="${TAG#v}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
   build:
+    needs: prep
     strategy:
       fail-fast: false
       matrix:
@@ -33,10 +64,12 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prep.outputs.tag }}
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Build dist tarballs
-        run: ./scripts/release/build-dist.sh "${GITHUB_REF_NAME}"
+        run: ./scripts/release/build-dist.sh "${{ needs.prep.outputs.version }}"
       - name: Build deb package (Linux only)
         if: matrix.os == 'ubuntu-latest'
         run: ./scripts/release/build-deb.sh
@@ -47,7 +80,7 @@ jobs:
           path: dist/*
 
   publish:
-    needs: build
+    needs: [prep, build]
     runs-on: ubuntu-latest
     steps:
       - name: Download artifacts
@@ -57,4 +90,5 @@ jobs:
       - name: Publish GitHub release assets
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ needs.prep.outputs.tag }}
           files: dist-artifacts/**/*
