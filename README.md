@@ -129,10 +129,29 @@ tide service uninstall
 - Release tarball + checksums: `./scripts/release/build-dist.sh`
 
 ## Version Management and Auto Release
-- `release-please` workflow (`.github/workflows/release-please.yml`) manages semantic version bumps, release PRs, tags, and changelog updates.
+- `release-from-tidemark` workflow (`.github/workflows/release-from-tidemark.yml`) computes version from current repository state via `tide mark`, then creates `v<version>` GitHub release.
 - After release publication (with tag `v*`), `release.yml` builds release assets and publishes ecosystem packages.
+- `release-please` workflow remains available as an optional manual semantic-release helper.
 - Artifact version naming is normalized from the tag (`v0.1.0` -> `0.1.0`) before packaging.
 - Recommended commit format for clean release notes: Conventional Commits (`feat:`, `fix:`, `chore:`).
+
+### Do I Need to Create Tags Manually?
+
+No for the normal path.
+
+1. Run `release-from-tidemark` workflow:
+```bash
+gh workflow run release-from-tidemark.yml -f ref=main
+```
+2. Workflow computes TideMark version and creates tag/release automatically.
+3. `release.yml` runs automatically on `release.published`.
+
+If no release anchor tag exists yet, bootstrap once:
+```bash
+gh workflow run release-from-tidemark.yml -f ref=main -f bootstrap_version=0.1.0
+```
+
+Manual tag creation is only a fallback path when you intentionally bypass release workflows.
 
 ## Release Destinations
 

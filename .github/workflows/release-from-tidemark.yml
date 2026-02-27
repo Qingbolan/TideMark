@@ -1,0 +1,106 @@
+# TideMark
+# ========
+#
+# File: .github/workflows/release-from-tidemark.yml
+# Description: Create GitHub Release tag from TideMark-computed repository coordinate.
+#
+# Responsibility:
+# - Resolve deterministic release version via `tide mark`.
+# - Create a `v<version>` GitHub release without manual tag creation.
+#
+# Architectural Position:
+# - Agent-first release trigger entrypoint that feeds the packaging workflow.
+#
+# Author: Silan.Hu
+# Email: silan.hu@u.nus.edu
+# Copyright (c) 2026-2027 easynet. All rights reserved.
+
+name: release-from-tidemark
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref to release from (branch, tag, or sha)"
+        required: false
+        default: "main"
+        type: string
+      allow_remote:
+        description: "Allow TideMark remote refresh when resolving release version"
+        required: false
+        default: false
+        type: boolean
+      fail_if_exists:
+        description: "Fail when the computed tag already exists"
+        required: false
+        default: true
+        type: boolean
+      bootstrap_version:
+        description: "Fallback semver when no release anchor exists (for first release, example: 0.1.0)"
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Resolve TideMark version
+        id: resolve
+        env:
+          TIDEMARK_ALLOW_REMOTE: ${{ inputs.allow_remote }}
+          TIDEMARK_BOOTSTRAP_VERSION: ${{ inputs.bootstrap_version }}
+        run: |
+          OUT="$(./scripts/release/resolve-version.sh)"
+          echo "$OUT"
+          VERSION="$(echo "$OUT" | awk -F= '$1=="version"{print $2}')"
+          if [[ -z "$VERSION" ]]; then
+            echo "error: failed to resolve TideMark version" >&2
+            exit 2
+          fi
+          TAG="v${VERSION}"
+          COMMIT="$(git rev-parse HEAD)"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "commit=$COMMIT" >> "$GITHUB_OUTPUT"
+
+      - name: Check if release tag already exists
+        id: exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view "${{ steps.resolve.outputs.tag }}" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Fail when tag already exists
+        if: ${{ steps.exists.outputs.exists == 'true' && inputs.fail_if_exists }}
+        run: |
+          echo "error: release tag already exists: ${{ steps.resolve.outputs.tag }}" >&2
+          exit 3
+
+      - name: Create GitHub release from TideMark version
+        if: ${{ steps.exists.outputs.exists == 'false' }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.resolve.outputs.tag }}
+          target_commitish: ${{ steps.resolve.outputs.commit }}
+          name: ${{ steps.resolve.outputs.tag }}
+          generate_release_notes: true
+
+      - name: Release summary
+        run: |
+          echo "resolved_version=${{ steps.resolve.outputs.version }}"
+          echo "resolved_tag=${{ steps.resolve.outputs.tag }}"
+          echo "tag_exists=${{ steps.exists.outputs.exists }}"

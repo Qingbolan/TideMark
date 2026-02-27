@@ -58,7 +58,8 @@ Official reference:
 - PyPI package source: `packaging/pypi/`
 - npm package source: `packaging/npm/`
 - Multi-platform release workflow: `.github/workflows/release.yml`
-- Automated version management workflow: `.github/workflows/release-please.yml`
+- TideMark-derived release trigger workflow: `.github/workflows/release-from-tidemark.yml`
+- Optional semantic-release helper workflow: `.github/workflows/release-please.yml`
 
 ## 5. Upgrade Path
 - Homebrew: `brew upgrade tide`
@@ -70,10 +71,9 @@ Note: There is no in-place binary self-update command. Upgrades are managed thro
 
 ## 6. Automated Release Flow
 
-1. Push conventional commits to `main`.
-2. `release-please` opens or updates a release PR with version/changelog changes.
-3. Merge the release PR to create a `v*` tag and GitHub Release.
-4. `release.yml` is triggered by release publication, normalizes `v*` to plain semantic version, then:
+1. Trigger `release-from-tidemark.yml` from `main`.
+2. Workflow computes TideMark version and creates a `v*` tag/GitHub Release.
+3. `release.yml` is triggered by release publication, normalizes `v*` to plain semantic version, then:
    - builds release archives and `.deb`,
    - uploads GitHub assets,
    - publishes PyPI and npm packages when credentials exist,

@@ -37,20 +37,21 @@ Repository settings:
   - `APT_COMPONENT` (optional, default `main`)
   - `APT_GPG_KEY_ID` (optional, when signing APT metadata)
 
-## 2. Trigger with release-please (recommended)
+## 2. Trigger TideMark-derived release (recommended)
 
 ```bash
 git checkout main
 git pull --ff-only
-git commit --allow-empty -m "feat: trigger ecosystem release"
-git push origin main
+gh workflow run release-from-tidemark.yml -f ref=main
 ```
 
-Then:
+Then GitHub release publication triggers `release.yml`.
 
-1. Wait for `release-please` PR.
-2. Merge the release PR.
-3. GitHub release publication triggers `release.yml`.
+If this is the first release and no anchor tag exists:
+
+```bash
+gh workflow run release-from-tidemark.yml -f ref=main -f bootstrap_version=0.1.0
+```
 
 ## 3. Manual trigger for an existing tag
 

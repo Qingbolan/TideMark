@@ -2,10 +2,10 @@
 # ========
 #
 # File: .github/workflows/release-please.yml
-# Description: Automated version management workflow using release-please.
+# Description: Optional manual semantic-release helper workflow using release-please.
 #
 # Responsibility:
-# - Create and maintain release PRs and semantic version tags from conventional commits.
+# - Provide an optional release PR/tag path when maintainers want release-please semantics.
 #
 # Architectural Position:
 # - Release orchestration entrypoint for automated version management.
@@ -17,10 +17,12 @@
 name: release-please
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
+    inputs:
+      release_as:
+        description: "Force next release version (for example: 0.1.0)"
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -34,5 +36,7 @@ jobs:
         id: release
         uses: googleapis/release-please-action@v4
         with:
+          token: ${{ secrets.GITHUB_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+          release-as: ${{ inputs.release_as }}

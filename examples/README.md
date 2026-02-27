@@ -45,7 +45,7 @@ cargo install --path . --force
 ```bash
 ./examples/03-remote-refresh.sh
 ```
-4. Release trigger flows (release-please + manual packaging):
+4. Release trigger flows (TideMark-derived release + manual packaging):
 ```bash
 cat ./examples/04-trigger-release.md
 ```

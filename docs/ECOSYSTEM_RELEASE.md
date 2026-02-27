@@ -34,16 +34,38 @@ All publication stages are executed by `.github/workflows/release.yml`.
 
 Recommended path:
 
-1. Push conventional commits to `main`.
-2. `release-please` opens a release PR.
-3. Merge the release PR.
-4. GitHub publishes tag `vX.Y.Z`, then `release.yml` runs automatically.
+1. Run `release-from-tidemark` workflow:
+```bash
+gh workflow run release-from-tidemark.yml -f ref=main
+```
+2. Workflow resolves current TideMark coordinate and creates `vX.Y.Z` GitHub release.
+3. `release.yml` runs automatically after release publication.
 
 Manual fallback:
 
 ```bash
 gh workflow run release.yml -f tag=v0.1.0
 ```
+
+## First Release Bootstrap
+
+You do not need to create a tag manually in the standard flow.
+
+Bootstrap path:
+
+```bash
+gh workflow run release-from-tidemark.yml -f ref=main -f bootstrap_version=0.1.0
+```
+
+Fallback path: manual tag + manual GitHub release
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+gh release create v0.1.0 --title "v0.1.0" --notes "bootstrap release"
+```
+
+After release publication, `release.yml` runs and publishes package artifacts.
 
 ## Required Secrets and Variables
 
@@ -71,6 +93,14 @@ gh workflow run release.yml -f tag=v0.1.0
     - Secret: `APT_GPG_PASSPHRASE`
 
 If optional credentials are missing, the corresponding ecosystem stage is skipped.
+
+## Why No Release Appears Yet
+
+Common causes:
+
+1. `release-from-tidemark` workflow has not been run.
+2. TideMark cannot resolve a release anchor in current repository history.
+3. Workflow permissions are restricted for `contents`.
 
 ## Published Artifacts
 

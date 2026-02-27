@@ -6,7 +6,7 @@ File: examples/04-trigger-release.md
 Description: Practical examples for triggering TideMark automated release flows.
 
 Responsibility:
-- Show how to trigger release-please and release packaging workflows correctly.
+- Show how to trigger TideMark-derived release and release packaging workflows correctly.
 
 Architectural Position:
 - Release operations example for maintainers.
@@ -19,30 +19,33 @@ Copyright (c) 2026-2027 easynet. All rights reserved.
 # Example: Trigger Release
 
 This repository uses:
-- `release-please.yml` for version PR/tag/changelog automation.
+- `release-from-tidemark.yml` for TideMark-derived tag/release creation.
 - `release.yml` for artifact packaging and upload.
 
-## Path A (Recommended): Trigger via `release-please`
+## Path A (Recommended): Trigger via TideMark-derived release
 
-1. Make a conventional commit on `main`:
+1. Ensure your target commit is on `main`:
 ```bash
 git checkout main
 git pull --ff-only
-git commit --allow-empty -m "feat: add release trigger example"
-git push origin main
 ```
 
-2. Wait for `release-please` workflow to open or update a release PR.
+2. Trigger release creation:
+```bash
+gh workflow run release-from-tidemark.yml -f ref=main
+```
 
-3. Merge the release PR.  
-   After merge, `release-please` creates a `v*` tag and GitHub Release.
+If this is the first release and no release anchor exists yet:
+```bash
+gh workflow run release-from-tidemark.yml -f ref=main -f bootstrap_version=0.1.0
+```
 
-4. `release.yml` runs on `release.published`, builds artifacts, and uploads:
+3. `release.yml` runs on `release.published`, builds artifacts, and uploads:
 - `tidemark-<version>-<target>.tar.gz`
 - `tidemark-<version>-<target>.tar.gz.sha256`
 - `.deb` (on Linux build job)
 
-5. Optional package publishers run when credentials are configured:
+4. Optional package publishers run when credentials are configured:
 - PyPI (`tidemark`)
 - npm (`tidemark`)
 - Homebrew tap update
