@@ -50,11 +50,7 @@ fn remote_mode_refreshes_latest_tags_without_stale_cache() {
         &[],
     );
     run_git(&upstream, &["push", "origin", "main", "--tags"], &[]);
-    run_git(
-        sandbox.path(),
-        &["clone", path_text(&remote), path_text(&local)],
-        &[],
-    );
+    init_local_checkout_from_remote(&remote, &local);
 
     let first = run_tide(&local, &["mark"]);
     assert_success(&first);
@@ -119,11 +115,7 @@ fn remote_same_name_tag_overrides_local_definition() {
         &[],
     );
     run_git(&upstream, &["push", "origin", "main", "--tags"], &[]);
-    run_git(
-        sandbox.path(),
-        &["clone", path_text(&remote), path_text(&local)],
-        &[],
-    );
+    init_local_checkout_from_remote(&remote, &local);
 
     let baseline_local_only = run_tide(&local, &["mark", "--local-only"]);
     assert_success(&baseline_local_only);
@@ -169,6 +161,14 @@ fn write_and_commit(repo: &Path, rel_path: &str, content: &str, message: &str, i
         &["commit", "-m", message],
         &[("GIT_AUTHOR_DATE", iso_ts), ("GIT_COMMITTER_DATE", iso_ts)],
     );
+}
+
+fn init_local_checkout_from_remote(remote: &Path, local: &Path) {
+    fs::create_dir_all(local).expect("create local dir");
+    run_git(local, &["init", "-b", "main"], &[]);
+    run_git(local, &["remote", "add", "origin", path_text(remote)], &[]);
+    run_git(local, &["fetch", "--tags", "origin", "main"], &[]);
+    run_git(local, &["checkout", "-B", "main", "FETCH_HEAD"], &[]);
 }
 
 fn run_tide(repo: &Path, args: &[&str]) -> Output {

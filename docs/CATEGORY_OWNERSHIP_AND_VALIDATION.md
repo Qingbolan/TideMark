@@ -34,8 +34,8 @@ Copyright (c) 2026-2027 easynet. All rights reserved.
   - Remote refresh with explicit local fallback semantics.
   - Typed error exits for stable automation handling.
 - Evidence:
-  - [TECHNICAL_DESIGN.md](/Users/macbook.silan.tech/Documents/GitHub/TideMark/docs/TECHNICAL_DESIGN.md)
-  - [release.rs](/Users/macbook.silan.tech/Documents/GitHub/TideMark/src/core/release.rs)
+  - [TECHNICAL_DESIGN.md](./TECHNICAL_DESIGN.md)
+  - [release.rs](../src/core/release.rs)
 
 ### Evaluation Benchmark
 - Observable I/O: `Git history + config -> x.y.z(.tag) + explain key=value`.
@@ -65,12 +65,12 @@ Copyright (c) 2026-2027 easynet. All rights reserved.
 ### Major Claim 1: Deterministic coordinates
 - Invariant: same Git state + same config -> byte-identical output.
 - Recovery path: remote lookup failure degrades to local-only when configured, or fails explicitly.
-- Evidence: [remote_refresh_integration.rs](/Users/macbook.silan.tech/Documents/GitHub/TideMark/tests/remote_refresh_integration.rs)
+- Evidence: [remote_refresh_integration.rs](../tests/remote_refresh_integration.rs)
 
 ### Major Claim 2: Side-effect free core semantics
 - Invariant: no commit/tag/index/worktree mutation in resolver flow.
 - Recovery path: unmet preconditions map to stable typed exits.
-- Evidence: [error.rs](/Users/macbook.silan.tech/Documents/GitHub/TideMark/src/error.rs)
+- Evidence: [error.rs](../src/error.rs)
 
 ### Major Claim 3: Auditable outputs
 - Invariant: explain output field set remains stable and script-safe.
