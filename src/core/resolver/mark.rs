@@ -19,7 +19,10 @@ use serde::Serialize;
 use crate::{
     config::{RemoteStrategy, TideConfig},
     core::{
-        model::{CommitInfo, MarkExplain, MarkResult, VersionCoordinate},
+        model::{
+            AnchorSelection, CommitInfo, MarkExplain, MarkResult, ReleaseTag, TagRef, TagSource,
+            VersionCoordinate,
+        },
         release,
         time::TimezonePolicy,
     },
@@ -85,12 +88,32 @@ pub fn resolve_mark(
     }
 
     let (releases, remote_status) = release::load_release_tags(git, config, req.local_only)?;
-    let anchor = release::select_anchor(
+    let anchor = match release::select_anchor(
         git,
         releases.as_slice(),
         &target,
         config.release.tag_prefix.as_str(),
-    )?;
+    ) {
+        Ok(a) => a,
+        Err(TideError::NoReleaseAnchor { .. }) => {
+            let root = git.root_commit()?;
+            let distance = git.commit_distance(root.id.as_str(), target.id.as_str())?;
+            AnchorSelection {
+                release: ReleaseTag {
+                    anchor_value: 0,
+                    tag: TagRef {
+                        name: "(none)".to_string(),
+                        commit_id: root.id.clone(),
+                        is_annotated: false,
+                        source: TagSource::Local,
+                    },
+                },
+                distance,
+                anchor_commit: root,
+            }
+        }
+        Err(other) => return Err(other),
+    };
 
     let day_delta_i64 = timezone.day_delta(anchor.anchor_commit.timestamp, target.timestamp)?;
     if day_delta_i64 < 0 {

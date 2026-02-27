@@ -144,7 +144,7 @@ fn default_tag_prefix() -> String {
 }
 
 fn default_timezone() -> String {
-    "UTC".to_string()
+    "local".to_string()
 }
 
 fn default_remote_name() -> String {
@@ -179,7 +179,7 @@ pub fn init_default(repo_root: &Path) -> TideResult<PathBuf> {
 }
 
 pub fn default_config_toml() -> &'static str {
-    "# TideMark configuration\n\n[release]\ntag_prefix = \"v\"\nrequire_annotated_tags = true\n\n[time]\ntimezone = \"UTC\"\n\n[remote]\nstrategy = \"ls-remote\"\nname = \"origin\"\nfallback_to_local = true\n\n[cache]\nenabled = true\n\n[output]\n# Optional suffix appended as x.y.z.<suffix>; does not change coordinates\nmetadata_suffix = \"\"\nfollow_renames = true\n"
+    "# TideMark configuration\n\n[release]\ntag_prefix = \"v\"\nrequire_annotated_tags = true\n\n[time]\ntimezone = \"local\"\n\n[remote]\nstrategy = \"ls-remote\"\nname = \"origin\"\nfallback_to_local = true\n\n[cache]\nenabled = true\n\n[output]\n# Optional suffix appended as x.y.z.<suffix>; does not change coordinates\nmetadata_suffix = \"\"\nfollow_renames = true\n"
 }
 
 #[cfg(test)]

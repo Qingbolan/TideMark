@@ -40,4 +40,5 @@ pub trait GitProvider {
     ) -> TideResult<Vec<CommitInfo>>;
     fn last_modifying_commit(&self, path: &Path, follow_renames: bool) -> TideResult<CommitInfo>;
     fn current_branch(&self) -> TideResult<Option<String>>;
+    fn root_commit(&self) -> TideResult<CommitInfo>;
 }

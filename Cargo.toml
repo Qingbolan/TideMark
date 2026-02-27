@@ -16,7 +16,7 @@
 
 [package]
 name = "tidemark"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2024"
 autobins = false
 description = "Git-native deterministic version coordinate system"

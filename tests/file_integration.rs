@@ -33,7 +33,7 @@ fn file_uses_last_modifying_commit_coordinate() {
         "stderr={}",
         String::from_utf8_lossy(&output.stderr)
     );
-    assert_eq!(String::from_utf8_lossy(&output.stdout), "3.0.1\n");
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "1.0.1\n");
 }
 
 #[test]

@@ -308,6 +308,18 @@ impl GitProvider for GitCli {
         self.parse_commit_line(out.as_str())
     }
 
+    fn root_commit(&self) -> TideResult<CommitInfo> {
+        let out = self.run_git_checked(&["rev-list", "--max-parents=0", "HEAD"])?;
+        let first_root = out
+            .lines()
+            .next()
+            .ok_or_else(|| TideError::Internal {
+                message: "no root commit found".to_string(),
+            })?
+            .trim();
+        self.resolve_commit(first_root)
+    }
+
     fn current_branch(&self) -> TideResult<Option<String>> {
         let output = self.run_git(&["symbolic-ref", "--quiet", "--short", "HEAD"])?;
         match output.status.code() {

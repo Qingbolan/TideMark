@@ -14,7 +14,7 @@
 //! Email: silan.hu@u.nus.edu
 //! Copyright (c) 2026-2027 easynet. All rights reserved.
 
-use chrono::{DateTime, FixedOffset, NaiveDate, Utc};
+use chrono::{DateTime, FixedOffset, Local, NaiveDate, Utc};
 
 use crate::error::{TideError, TideResult};
 
@@ -22,6 +22,7 @@ use crate::error::{TideError, TideResult};
 pub enum TimezonePolicy {
     Utc,
     Fixed(FixedOffset),
+    Local,
 }
 
 impl TimezonePolicy {
@@ -29,6 +30,9 @@ impl TimezonePolicy {
         let trimmed = raw.trim();
         if trimmed.eq_ignore_ascii_case("utc") || trimmed == "Z" {
             return Ok(Self::Utc);
+        }
+        if trimmed.eq_ignore_ascii_case("local") {
+            return Ok(Self::Local);
         }
 
         parse_fixed_offset(trimmed)
@@ -42,6 +46,10 @@ impl TimezonePolicy {
         match self {
             Self::Utc => "UTC".to_string(),
             Self::Fixed(offset) => offset.to_string(),
+            Self::Local => {
+                let now = Local::now();
+                now.offset().to_string()
+            }
         }
     }
 
@@ -53,6 +61,7 @@ impl TimezonePolicy {
         let date = match self {
             Self::Utc => dt_utc.date_naive(),
             Self::Fixed(offset) => dt_utc.with_timezone(offset).date_naive(),
+            Self::Local => dt_utc.with_timezone(&Local).date_naive(),
         };
         Ok(date)
     }
@@ -103,6 +112,14 @@ mod tests {
         assert!(matches!(
             TimezonePolicy::parse("+08:00").unwrap(),
             TimezonePolicy::Fixed(_)
+        ));
+        assert!(matches!(
+            TimezonePolicy::parse("local").unwrap(),
+            TimezonePolicy::Local
+        ));
+        assert!(matches!(
+            TimezonePolicy::parse("Local").unwrap(),
+            TimezonePolicy::Local
         ));
         assert!(TimezonePolicy::parse("+8").is_err());
     }

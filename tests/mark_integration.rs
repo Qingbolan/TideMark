@@ -51,7 +51,7 @@ fn mark_explain_is_key_value() {
         String::from_utf8_lossy(&output.stderr)
     );
     let text = String::from_utf8_lossy(&output.stdout);
-    assert!(text.contains("version=2.0.1"));
+    assert!(text.contains("version=1.0.1"));
     assert!(text.contains("anchor_tag=v2"));
     assert!(text.contains("day_delta=0"));
     assert!(text.contains("commit_index=1"));
@@ -66,7 +66,15 @@ fn lightweight_tags_rejected_by_default_but_configurable() {
     repo.write_file_and_commit("a.txt", "b\n", "c2", "2024-01-01T01:00:00+00:00");
 
     let default_output = repo.run_tide(&["mark"]);
-    assert_eq!(default_output.status.code(), Some(4));
+    assert!(
+        default_output.status.success(),
+        "stderr={}",
+        String::from_utf8_lossy(&default_output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&default_output.stdout),
+        "0.0.1\n"
+    );
 
     repo.write_config("[release]\nrequire_annotated_tags = false\n\n[time]\ntimezone = \"UTC\"\n");
 

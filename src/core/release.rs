@@ -23,7 +23,9 @@ use crate::{
     infra::git::GitProvider,
 };
 
-pub fn parse_anchor_value(tag_name: &str, prefix: &str) -> TideResult<u64> {
+/// Extract a sortable semver key from a tag name (e.g. "v0.1.0" → (0,1,0), "v3" → (3,0,0)).
+/// Used only for ordering tags; the final `anchor_value` is the 1-based ordinal position.
+pub fn parse_sort_key(tag_name: &str, prefix: &str) -> TideResult<(u64, u64, u64)> {
     let suffix = tag_name
         .strip_prefix(prefix)
         .ok_or_else(|| TideError::InvalidReleaseTag {
@@ -31,20 +33,25 @@ pub fn parse_anchor_value(tag_name: &str, prefix: &str) -> TideResult<u64> {
             prefix: prefix.to_string(),
         })?;
 
-    let digits: String = suffix.chars().take_while(|c| c.is_ascii_digit()).collect();
-    if digits.is_empty() {
-        return Err(TideError::InvalidReleaseTag {
-            tag: tag_name.to_string(),
-            prefix: prefix.to_string(),
-        });
-    }
+    let parts: Vec<&str> = suffix.splitn(3, '.').collect();
+    let parse_part = |s: &str| -> Option<u64> {
+        let digits: String = s.chars().take_while(|c| c.is_ascii_digit()).collect();
+        if digits.is_empty() {
+            None
+        } else {
+            digits.parse::<u64>().ok()
+        }
+    };
 
-    digits
-        .parse::<u64>()
-        .map_err(|_| TideError::InvalidReleaseTag {
+    let major = parse_part(parts.first().unwrap_or(&""))
+        .ok_or_else(|| TideError::InvalidReleaseTag {
             tag: tag_name.to_string(),
             prefix: prefix.to_string(),
-        })
+        })?;
+    let minor = parts.get(1).and_then(|s| parse_part(s)).unwrap_or(0);
+    let patch = parts.get(2).and_then(|s| parse_part(s)).unwrap_or(0);
+
+    Ok((major, minor, patch))
 }
 
 pub fn load_release_tags(
@@ -83,22 +90,30 @@ pub fn load_release_tags(
         }
     }
 
-    let mut releases = Vec::new();
+    let mut keyed: Vec<((u64, u64, u64), TagRef)> = Vec::new();
     for tag in by_name.into_values() {
         if config.release.require_annotated_tags && !tag.is_annotated {
             continue;
         }
 
-        let anchor_value =
-            parse_anchor_value(tag.name.as_str(), config.release.tag_prefix.as_str())?;
-        releases.push(ReleaseTag { anchor_value, tag });
+        let sort_key =
+            parse_sort_key(tag.name.as_str(), config.release.tag_prefix.as_str())?;
+        keyed.push((sort_key, tag));
     }
 
-    releases.sort_by(|a, b| {
-        a.anchor_value
-            .cmp(&b.anchor_value)
-            .then_with(|| a.tag.name.cmp(&b.tag.name))
+    keyed.sort_by(|a, b| {
+        a.0.cmp(&b.0)
+            .then_with(|| a.1.name.cmp(&b.1.name))
     });
+
+    let releases: Vec<ReleaseTag> = keyed
+        .into_iter()
+        .enumerate()
+        .map(|(i, (_key, tag))| ReleaseTag {
+            anchor_value: (i + 1) as u64,
+            tag,
+        })
+        .collect();
 
     Ok((releases, remote_status))
 }
@@ -158,9 +173,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parse_anchor_from_default_prefix() {
-        assert_eq!(parse_anchor_value("v1", "v").unwrap(), 1);
-        assert_eq!(parse_anchor_value("v12.3", "v").unwrap(), 12);
-        assert!(parse_anchor_value("v", "v").is_err());
+    fn parse_sort_key_from_default_prefix() {
+        assert_eq!(parse_sort_key("v1", "v").unwrap(), (1, 0, 0));
+        assert_eq!(parse_sort_key("v0.1.0", "v").unwrap(), (0, 1, 0));
+        assert_eq!(parse_sort_key("v12.3.4", "v").unwrap(), (12, 3, 4));
+        assert!(parse_sort_key("v", "v").is_err());
     }
 }
