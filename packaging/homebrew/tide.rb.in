@@ -1,0 +1,34 @@
+# TideMark
+# ========
+#
+# File: packaging/homebrew/tide.rb.in
+# Description: Homebrew Formula template for TideMark distribution artifacts.
+#
+# Responsibility:
+# - Define installation and smoke-test rules for packaged binaries.
+#
+# Architectural Position:
+# - Package-manager template source in distribution assets.
+#
+# Author: Silan.Hu
+# Email: silan.hu@u.nus.edu
+# Copyright (c) 2026-2027 easynet. All rights reserved.
+
+class Tide < Formula
+  desc "Git-native deterministic version coordinate CLI"
+  homepage "https://github.com/<ORG>/<REPO>"
+  url "<URL>"
+  version "<VER>"
+  sha256 "<SHA256>"
+  license "MIT"
+
+  def install
+    bin.install "tide"
+    bin.install "git-tide"
+  end
+
+  test do
+    assert_match "Usage:", shell_output("#{bin}/tide --help")
+    assert_match "Usage:", shell_output("#{bin}/git-tide --help")
+  end
+end

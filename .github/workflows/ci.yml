@@ -1,0 +1,35 @@
+# TideMark
+# ========
+#
+# File: .github/workflows/ci.yml
+# Description: Continuous integration workflow for formatting and test verification.
+#
+# Responsibility:
+# - Run deterministic quality gates on push and pull request events.
+#
+# Architectural Position:
+# - Repository automation entry for validation gates.
+#
+# Author: Silan.Hu
+# Email: silan.hu@u.nus.edu
+# Copyright (c) 2026-2027 easynet. All rights reserved.
+
+name: ci
+
+on:
+  push:
+    branches: ["**"]
+    tags-ignore: ["v*"]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Format check
+        run: cargo fmt --check
+      - name: Test
+        run: cargo test --all-targets

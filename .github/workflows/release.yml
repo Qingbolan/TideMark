@@ -1,0 +1,60 @@
+# TideMark
+# ========
+#
+# File: .github/workflows/release.yml
+# Description: Release workflow for building and publishing TideMark distribution artifacts.
+#
+# Responsibility:
+# - Build platform artifacts and publish release assets for version tags.
+#
+# Architectural Position:
+# - Repository automation entry for release delivery.
+#
+# Author: Silan.Hu
+# Email: silan.hu@u.nus.edu
+# Copyright (c) 2026-2027 easynet. All rights reserved.
+
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build dist tarballs
+        run: ./scripts/release/build-dist.sh "${GITHUB_REF_NAME}"
+      - name: Build deb package (Linux only)
+        if: matrix.os == 'ubuntu-latest'
+        run: ./scripts/release/build-deb.sh
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ matrix.os }}
+          path: dist/*
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist-artifacts
+      - name: Publish GitHub release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist-artifacts/**/*
