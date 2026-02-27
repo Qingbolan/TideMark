@@ -2,13 +2,15 @@
 # ========
 #
 # File: .github/workflows/release.yml
-# Description: Release workflow for building and publishing TideMark distribution artifacts from published releases.
+# Description: Unified release workflow for building artifacts and publishing TideMark to package ecosystems.
 #
 # Responsibility:
-# - Build platform artifacts and publish release assets for the resolved release tag/version.
+# - Build deterministic multi-platform artifacts and upload them to GitHub Releases.
+# - Publish TideMark launcher packages to PyPI and npm.
+# - Update Homebrew tap formula and publish static APT repository metadata.
 #
 # Architectural Position:
-# - Repository automation entry for release delivery.
+# - Repository release-delivery entrypoint for agent-facing package distribution.
 #
 # Author: Silan.Hu
 # Email: silan.hu@u.nus.edu
@@ -36,6 +38,7 @@ jobs:
     outputs:
       tag: ${{ steps.meta.outputs.tag }}
       version: ${{ steps.meta.outputs.version }}
+      repository: ${{ steps.meta.outputs.repository }}
     steps:
       - name: Resolve release metadata
         id: meta
@@ -51,44 +54,284 @@ jobs:
             exit 2
           fi
 
+          if [[ "$TAG" != v* ]]; then
+            echo "error: release tag must start with 'v', got: $TAG" >&2
+            exit 3
+          fi
+
           VERSION="${TAG#v}"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "repository=${{ github.repository }}" >> "$GITHUB_OUTPUT"
 
-  build:
+  build-dist:
     needs: prep
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+          - os: macos-13
+            target: x86_64-apple-darwin
+          - os: macos-14
+            target: aarch64-apple-darwin
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ needs.prep.outputs.tag }}
       - uses: dtolnay/rust-toolchain@stable
+      - name: Add target
+        run: rustup target add "${{ matrix.target }}"
+      - name: Install Linux cross toolchain (aarch64)
+        if: matrix.os == 'ubuntu-latest' && matrix.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
       - uses: Swatinem/rust-cache@v2
-      - name: Build dist tarballs
-        run: ./scripts/release/build-dist.sh "${{ needs.prep.outputs.version }}"
-      - name: Build deb package (Linux only)
-        if: matrix.os == 'ubuntu-latest'
-        run: ./scripts/release/build-deb.sh
-      - name: Upload artifacts
+      - name: Build release archive
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+        run: ./scripts/release/build-dist.sh "${{ needs.prep.outputs.version }}" "${{ matrix.target }}"
+      - name: Upload release archive artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: dist-${{ matrix.os }}
-          path: dist/*
+          name: dist-${{ matrix.target }}
+          path: |
+            dist/tidemark-${{ needs.prep.outputs.version }}-${{ matrix.target }}.tar.gz
+            dist/tidemark-${{ needs.prep.outputs.version }}-${{ matrix.target }}.tar.gz.sha256
 
-  publish:
-    needs: [prep, build]
+  build-deb:
+    needs: prep
     runs-on: ubuntu-latest
     steps:
-      - name: Download artifacts
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prep.outputs.tag }}
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build Debian package
+        run: ./scripts/release/build-deb.sh
+      - name: Upload Debian artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-deb
+          path: dist/*.deb
+
+  publish-release-assets:
+    needs: [prep, build-dist, build-deb]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all release artifacts
         uses: actions/download-artifact@v4
         with:
           path: dist-artifacts
+          pattern: dist-*
+          merge-multiple: true
+      - name: Show artifact manifest
+        run: ls -lah dist-artifacts
       - name: Publish GitHub release assets
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.prep.outputs.tag }}
-          files: dist-artifacts/**/*
+          files: dist-artifacts/*
+
+  publish-pypi:
+    needs: [prep, publish-release-assets]
+    if: ${{ secrets.PYPI_API_TOKEN != '' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prep.outputs.tag }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Inject release version and repository
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          version = "${{ needs.prep.outputs.version }}"
+          repository = "${{ needs.prep.outputs.repository }}"
+
+          pyproject = Path("packaging/pypi/pyproject.toml")
+          text = pyproject.read_text(encoding="utf-8")
+          text = re.sub(r'^version = ".*"$', f'version = "{version}"', text, count=1, flags=re.MULTILINE)
+          text = text.replace("Qingbolan/TideMark", repository)
+          pyproject.write_text(text, encoding="utf-8")
+
+          resolver = Path("packaging/pypi/tidemark_agent/resolver.py")
+          resolver_text = resolver.read_text(encoding="utf-8")
+          resolver_text = re.sub(
+              r'^DEFAULT_REPOSITORY = ".*"$',
+              f'DEFAULT_REPOSITORY = "{repository}"',
+              resolver_text,
+              count=1,
+              flags=re.MULTILINE,
+          )
+          resolver.write_text(resolver_text, encoding="utf-8")
+          PY
+      - name: Build Python distribution
+        run: |
+          python3 -m pip install --upgrade build
+          python3 -m build packaging/pypi --outdir dist-pypi
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          user: __token__
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          packages-dir: dist-pypi
+
+  publish-npm:
+    needs: [prep, publish-release-assets]
+    if: ${{ secrets.NPM_TOKEN != '' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prep.outputs.tag }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+      - name: Inject release version and repository
+        run: |
+          cd packaging/npm
+          npm pkg set version="${{ needs.prep.outputs.version }}"
+          npm pkg set tidemarkRepository="${{ needs.prep.outputs.repository }}"
+          npm pkg set repository.url="git+https://github.com/${{ needs.prep.outputs.repository }}.git"
+          npm pkg set bugs.url="https://github.com/${{ needs.prep.outputs.repository }}/issues"
+          npm pkg set homepage="https://github.com/${{ needs.prep.outputs.repository }}#readme"
+      - name: Publish to npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          cd packaging/npm
+          npm publish --access public
+
+  publish-homebrew:
+    needs: [prep, publish-release-assets]
+    if: ${{ secrets.HOMEBREW_TAP_TOKEN != '' && vars.HOMEBREW_TAP_REPOSITORY != '' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prep.outputs.tag }}
+      - name: Download macOS release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist-artifacts
+          pattern: dist-*
+          merge-multiple: true
+      - name: Render Homebrew formula
+        env:
+          VERSION: ${{ needs.prep.outputs.version }}
+          TAG: ${{ needs.prep.outputs.tag }}
+          REPOSITORY: ${{ needs.prep.outputs.repository }}
+        run: |
+          X64_ARCHIVE="tidemark-${VERSION}-x86_64-apple-darwin.tar.gz"
+          ARM64_ARCHIVE="tidemark-${VERSION}-aarch64-apple-darwin.tar.gz"
+
+          for ARCHIVE in "$X64_ARCHIVE" "$ARM64_ARCHIVE"; do
+            if [[ ! -f "dist-artifacts/${ARCHIVE}" ]]; then
+              echo "error: missing release asset $ARCHIVE" >&2
+              exit 10
+            fi
+            if [[ ! -f "dist-artifacts/${ARCHIVE}.sha256" ]]; then
+              echo "error: missing release checksum ${ARCHIVE}.sha256" >&2
+              exit 11
+            fi
+          done
+
+          X64_SHA256="$(awk '{print $1}' "dist-artifacts/${X64_ARCHIVE}.sha256")"
+          ARM64_SHA256="$(awk '{print $1}' "dist-artifacts/${ARM64_ARCHIVE}.sha256")"
+
+          X64_URL="https://github.com/${REPOSITORY}/releases/download/${TAG}/${X64_ARCHIVE}"
+          ARM64_URL="https://github.com/${REPOSITORY}/releases/download/${TAG}/${ARM64_ARCHIVE}"
+
+          ./scripts/release/render-homebrew-formula.sh \
+            "$VERSION" \
+            "$X64_URL" \
+            "$X64_SHA256" \
+            "$ARM64_URL" \
+            "$ARM64_SHA256" \
+            "$REPOSITORY"
+      - name: Push formula update to tap repository
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          HOMEBREW_TAP_REPOSITORY: ${{ vars.HOMEBREW_TAP_REPOSITORY }}
+        run: |
+          git clone "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/${HOMEBREW_TAP_REPOSITORY}.git" tap-repo
+          mkdir -p tap-repo/Formula
+          cp packaging/homebrew/tide.rb tap-repo/Formula/tide.rb
+          cd tap-repo
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if [[ -z "$(git status --porcelain)" ]]; then
+            echo "No Homebrew tap changes to push."
+            exit 0
+          fi
+
+          git add Formula/tide.rb
+          git commit -m "chore: release tide ${{ needs.prep.outputs.version }}"
+          git push
+
+  publish-apt:
+    needs: [prep, publish-release-assets]
+    if: ${{ vars.APT_ENABLE_PUBLISH == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prep.outputs.tag }}
+      - name: Download Debian release artifact
+        uses: actions/download-artifact@v4
+        with:
+          path: dist-artifacts
+          name: dist-deb
+      - name: Install APT metadata tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y apt-utils dpkg-dev gnupg
+      - name: Import APT signing key (optional)
+        if: ${{ secrets.APT_GPG_PRIVATE_KEY != '' && vars.APT_GPG_KEY_ID != '' }}
+        env:
+          APT_GPG_PRIVATE_KEY: ${{ secrets.APT_GPG_PRIVATE_KEY }}
+        run: |
+          printf '%s' "$APT_GPG_PRIVATE_KEY" | gpg --batch --import
+      - name: Build static APT repository tree
+        env:
+          APT_GPG_KEY_ID: ${{ vars.APT_GPG_KEY_ID }}
+          APT_GPG_PASSPHRASE: ${{ secrets.APT_GPG_PASSPHRASE }}
+        run: |
+          DEB_FILE="$(ls dist-artifacts/*.deb | head -n 1)"
+          DISTRIBUTION="${{ vars.APT_DISTRIBUTION }}"
+          COMPONENT="${{ vars.APT_COMPONENT }}"
+
+          if [[ -z "$DISTRIBUTION" ]]; then
+            DISTRIBUTION="stable"
+          fi
+          if [[ -z "$COMPONENT" ]]; then
+            COMPONENT="main"
+          fi
+
+          ./scripts/release/build-apt-repo.sh "$DEB_FILE" apt-public "$DISTRIBUTION" "$COMPONENT"
+      - name: Publish APT repo to GitHub Pages branch
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: ${{ vars.APT_GH_PAGES_BRANCH || 'gh-pages' }}
+          publish_dir: ./apt-public
+          destination_dir: apt
+          keep_files: true

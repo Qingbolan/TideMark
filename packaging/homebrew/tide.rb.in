@@ -15,12 +15,20 @@
 # Copyright (c) 2026-2027 easynet. All rights reserved.
 
 class Tide < Formula
-  desc "Git-native deterministic version coordinate CLI"
+  desc "Agent-first deterministic Git version coordinate CLI"
   homepage "https://github.com/<ORG>/<REPO>"
-  url "<URL>"
   version "<VER>"
-  sha256 "<SHA256>"
   license "MIT"
+
+  on_macos do
+    if Hardware::CPU.arm?
+      url "<ARM64_URL>"
+      sha256 "<ARM64_SHA256>"
+    else
+      url "<X64_URL>"
+      sha256 "<X64_SHA256>"
+    end
+  end
 
   def install
     bin.install "tide"

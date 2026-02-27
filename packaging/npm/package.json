@@ -1,0 +1,50 @@
+{
+  "x-file-header": {
+    "project": "TideMark",
+    "file": "packaging/npm/package.json",
+    "description": "Node package metadata for publishing the agent-first TideMark launcher to npm.",
+    "author": "Silan.Hu",
+    "email": "silan.hu@u.nus.edu"
+  },
+  "name": "tidemark",
+  "version": "0.1.0",
+  "description": "Agent-first TideMark launcher that installs deterministic release binaries.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Qingbolan/TideMark.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Qingbolan/TideMark/issues"
+  },
+  "homepage": "https://github.com/Qingbolan/TideMark#readme",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "bin": {
+    "tide": "bin/tide.js",
+    "git-tide": "bin/git-tide.js"
+  },
+  "scripts": {
+    "postinstall": "node scripts/postinstall.js",
+    "check": "node -e \"require('./lib/platform').resolveTargetTriple();\""
+  },
+  "files": [
+    "README.md",
+    "bin",
+    "lib",
+    "scripts"
+  ],
+  "os": [
+    "darwin",
+    "linux"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ],
+  "dependencies": {
+    "tar": "^7.4.3"
+  },
+  "tidemarkRepository": "Qingbolan/TideMark"
+}

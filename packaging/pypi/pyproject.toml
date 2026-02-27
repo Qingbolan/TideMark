@@ -1,0 +1,50 @@
+# TideMark
+# ========
+#
+# File: packaging/pypi/pyproject.toml
+# Description: Python package metadata for publishing the agent-first TideMark launcher to PyPI.
+#
+# Responsibility:
+# - Define build backend, package metadata, and console script entrypoints.
+#
+# Architectural Position:
+# - Ecosystem packaging manifest for Python distribution.
+#
+# Author: Silan.Hu
+# Email: silan.hu@u.nus.edu
+# Copyright (c) 2026-2027 easynet. All rights reserved.
+
+[build-system]
+requires = ["setuptools>=69.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tidemark"
+version = "0.1.0"
+description = "Agent-first TideMark launcher that installs deterministic release binaries."
+readme = "README.md"
+requires-python = ">=3.9"
+license = "MIT"
+authors = [{ name = "Silan.Hu", email = "silan.hu@u.nus.edu" }]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Software Development :: Build Tools",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/Qingbolan/TideMark"
+Repository = "https://github.com/Qingbolan/TideMark"
+Issues = "https://github.com/Qingbolan/TideMark/issues"
+
+[project.scripts]
+tide = "tidemark_agent.cli:tide_main"
+git-tide = "tidemark_agent.cli:git_tide_main"
+
+[tool.setuptools]
+packages = ["tidemark_agent"]

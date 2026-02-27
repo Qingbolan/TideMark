@@ -33,3 +33,23 @@ jobs:
         run: cargo fmt --check
       - name: Test
         run: cargo test --all-targets
+
+  package-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Build PyPI package
+        run: |
+          python3 -m pip install --upgrade build
+          python3 -m build packaging/pypi --outdir dist-pypi
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Validate npm package metadata
+        run: |
+          cd packaging/npm
+          npm install --ignore-scripts --package-lock=false
+          npm run check

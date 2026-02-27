@@ -51,7 +51,14 @@ cp LICENSE "$PACKAGE_DIR/LICENSE"
 
 mkdir -p "$DIST_DIR"
 tar -C "$DIST_DIR" -czf "$DIST_DIR/${PACKAGE_BASE}.tar.gz" "$PACKAGE_BASE"
-shasum -a 256 "$DIST_DIR/${PACKAGE_BASE}.tar.gz" > "$DIST_DIR/${PACKAGE_BASE}.tar.gz.sha256"
+if command -v sha256sum >/dev/null 2>&1; then
+  sha256sum "$DIST_DIR/${PACKAGE_BASE}.tar.gz" > "$DIST_DIR/${PACKAGE_BASE}.tar.gz.sha256"
+elif command -v shasum >/dev/null 2>&1; then
+  shasum -a 256 "$DIST_DIR/${PACKAGE_BASE}.tar.gz" > "$DIST_DIR/${PACKAGE_BASE}.tar.gz.sha256"
+else
+  echo "error: missing sha256 checksum command (sha256sum/shasum)" >&2
+  exit 3
+fi
 
 echo "dist_archive=$DIST_DIR/${PACKAGE_BASE}.tar.gz"
 echo "dist_checksum=$DIST_DIR/${PACKAGE_BASE}.tar.gz.sha256"

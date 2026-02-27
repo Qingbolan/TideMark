@@ -1,3 +1,23 @@
+# TideMark
+# ========
+#
+# File: .gitignore
+# Description: Ignore patterns for build artifacts and local workflow byproducts.
+#
+# Responsibility:
+# - Exclude generated files from Rust, packaging, and local delivery loops.
+#
+# Architectural Position:
+# - Repository hygiene boundary for source-controlled content.
+#
+# Author: Silan.Hu
+# Email: silan.hu@u.nus.edu
+# Copyright (c) 2026-2027 easynet. All rights reserved.
+
 /target
 /dist
 pr/
+packaging/homebrew/tide.rb
+packaging/npm/node_modules/
+packaging/pypi/*.egg-info/
+packaging/pypi/**/__pycache__/
