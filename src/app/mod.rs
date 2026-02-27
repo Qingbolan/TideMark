@@ -44,7 +44,13 @@ pub fn run(cli: Cli) -> TideResult<()> {
     let cwd = env::current_dir().map_err(|err| io_err(".", err))?;
     let git = GitCli::discover(cwd.as_path())?;
 
-    match cli.command {
+    let command = cli.command.unwrap_or(Commands::Mark(crate::interface::cli::MarkArgs {
+        explain: false,
+        local_only: true,
+        metadata_suffix: None,
+    }));
+
+    match command {
         Commands::Config(config_cmd) => match config_cmd.command {
             ConfigSubcommand::Init => {
                 let path = config::init_default(git.repo_root())?;

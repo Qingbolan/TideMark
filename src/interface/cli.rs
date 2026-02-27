@@ -24,7 +24,7 @@ use clap::{Parser, Subcommand};
 #[command(about = "Git-native deterministic version coordinates")]
 pub struct Cli {
     #[command(subcommand)]
-    pub command: Commands,
+    pub command: Option<Commands>,
 }
 
 #[derive(Debug, Subcommand)]
